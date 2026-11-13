@@ -29,7 +29,6 @@ SIMILAR_SLOTS = 4            # "similar products" on a product page
 HOME_SLOTS = 6               # "recommended for you" on the home page
 POSITION_BIAS = 1 / (1 + 0.35 * np.arange(max(LISTING_SLOTS, HOME_SLOTS)))
 ANONYMOUS_POOL_SIZE = 12_000
-LAUNCH_DAYS = 21
 
 # Landing page for each traffic source.
 LANDING_PAGE = {"paid_search": "search_results", "shopping": "pdp", "paid_social": "plp", "display": "plp",
@@ -286,10 +285,9 @@ class Traffic:
                             cart.append((p, sku, 1))
 
         # Anonymous visitors sometimes create an account mid-visit (welcome coupon prompt),
-        # much more often in the launch weeks and when they have something in the cart.
+        # more often when they have something in the cart.
         if not person["customer_id"]:
-            launch = (start.normalize() - self.settings.start).days < LAUNCH_DAYS
-            chance = (0.22 if launch else 0.05) + (0.10 if cart else 0.0)
+            chance = 0.05 + (0.10 if cart else 0.0)
             if rng.random() < chance:
                 self._sign_up_now(w, s, rng, person)
 
@@ -363,7 +361,6 @@ class Traffic:
     # ------------------------------------------------------------------ a whole day
     def run_day(self, w, day: pd.Timestamp, demand: float, landings: list, crm_clicks: list) -> None:
         rng = stream(self.settings.seed, "traffic.day", day)
-        scale = self.settings.scale
         visits = []         # (start time, person, source)
 
         # 1. Existing customers coming back on their own (interest fades after their last order).
@@ -393,11 +390,8 @@ class Traffic:
             campaign = w.marketing.by_id[campaign_id]
             visits.append((start, w.population.profile(customer_id), self._campaign_source(campaign)))
 
-        # 3. New visitors finding the shop (many more during the launch weeks), and
-        #    earlier anonymous visitors returning.
-        new_visitors = rng.poisson(self.settings.daily_new_visitors * scale * demand)
-        if (day - self.settings.start).days < LAUNCH_DAYS:
-            new_visitors += rng.poisson(self.settings.launch_customers / LAUNCH_DAYS * 1.5)
+        # 3. New visitors finding the shop, and earlier anonymous visitors returning.
+        new_visitors = rng.poisson(self.settings.daily_new_visitors * demand)
         for _ in range(int(new_visitors)):
             source = self._organic_source(rng)
             person = w.population.new_person(rng, source["traffic_source"])

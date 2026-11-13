@@ -19,11 +19,11 @@ def main(argv=None) -> int:
     parser.add_argument("--start-date", help="day the shop opens (default: 2025-01-01)")
     parser.add_argument("--seed", help="random seed (default: 42)")
     parser.add_argument("--products", help="number of product styles (default: 10000)")
-    parser.add_argument("--launch-customers", help="customers signing up in the opening weeks (default: 9000)")
+    parser.add_argument("--traffic-scale", help="marketing budgets and clicks vs the full shop (full = 1.0)")
     args = parser.parse_args(argv)
     settings = settings_module.from_environment(
         size=args.size, data_dir=args.data_dir, today=args.today, start_date=args.start_date, seed=args.seed,
-        n_products=args.products, launch_customers=args.launch_customers)
+        n_products=args.products, traffic_scale=args.traffic_scale)
 
     if args.command == "download":
         from .download import download

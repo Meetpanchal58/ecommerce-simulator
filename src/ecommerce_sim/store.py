@@ -71,7 +71,7 @@ class Store:
         from . import __version__
         from .settings import SIZES
         mine = {"n_products": settings.n_products, "n_sellers": settings.n_sellers,
-                "launch_customers": settings.launch_customers, "daily_new_visitors": settings.daily_new_visitors}
+                "traffic_scale": settings.traffic_scale, "daily_new_visitors": settings.daily_new_visitors}
         size = next((name for name, preset in SIZES.items() if preset == mine), "custom")
         manifest = {"size": size, "seed": settings.seed, "first_day": f"{first_day:%Y-%m-%d}",
                     "last_day": f"{last_day:%Y-%m-%d}", "package_version": __version__, **mine}

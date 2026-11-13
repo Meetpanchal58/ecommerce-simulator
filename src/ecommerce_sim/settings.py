@@ -12,9 +12,9 @@ import pandas as pd
 
 # Ready-made shop sizes. Explicit settings (flags or environment variables) override these.
 SIZES = {
-    "small": {"n_products": 1_500, "n_sellers": 80, "launch_customers": 1_500, "daily_new_visitors": 30},
-    "medium": {"n_products": 5_000, "n_sellers": 200, "launch_customers": 4_500, "daily_new_visitors": 80},
-    "full": {"n_products": 10_000, "n_sellers": 400, "launch_customers": 9_000, "daily_new_visitors": 160},
+    "small": {"n_products": 1_500, "n_sellers": 80, "traffic_scale": 0.17, "daily_new_visitors": 30},
+    "medium": {"n_products": 5_000, "n_sellers": 200, "traffic_scale": 0.5, "daily_new_visitors": 80},
+    "full": {"n_products": 10_000, "n_sellers": 400, "traffic_scale": 1.0, "daily_new_visitors": 160},
 }
 
 
@@ -27,7 +27,7 @@ class Settings:
     n_products: int = 10_000         # product styles taken from the catalogue
     n_sellers: int = 400
     n_agents: int = 100
-    launch_customers: int = 9_000    # customers who sign up in the opening weeks
+    traffic_scale: float = 1.0       # marketing budgets and clicks relative to the full-size shop
     daily_new_visitors: float = 160  # new (anonymous) visitors per day before marketing
 
     @property
@@ -40,8 +40,8 @@ class Settings:
 
     @property
     def scale(self) -> float:
-        """How big this shop is compared with the default size (used to scale volumes)."""
-        return self.launch_customers / 9_000
+        """How big this shop's marketing is compared with the full-size shop."""
+        return self.traffic_scale
 
 
 def from_environment(size: str | None = None, **overrides) -> Settings:
@@ -53,7 +53,7 @@ def from_environment(size: str | None = None, **overrides) -> Settings:
         "today": os.getenv("ECOMSIM_TODAY"),
         "n_products": os.getenv("ECOMSIM_PRODUCTS"),
         "n_sellers": os.getenv("ECOMSIM_SELLERS"),
-        "launch_customers": os.getenv("ECOMSIM_LAUNCH_CUSTOMERS"),
+        "traffic_scale": os.getenv("ECOMSIM_TRAFFIC_SCALE"),
         "daily_new_visitors": os.getenv("ECOMSIM_DAILY_NEW_VISITORS"),
     }
     size = size or os.getenv("ECOMSIM_SIZE") or "full"
@@ -63,7 +63,7 @@ def from_environment(size: str | None = None, **overrides) -> Settings:
     values = dict(SIZES[size])
     values.update({key: value for key, value in env.items() if value not in (None, "")})
     values.update({key: value for key, value in overrides.items() if value not in (None, "")})
-    types = {"seed": int, "n_products": int, "n_sellers": int, "launch_customers": int,
+    types = {"seed": int, "n_products": int, "n_sellers": int, "traffic_scale": float,
              "daily_new_visitors": float, "data_dir": Path}
     for key, kind in types.items():
         if key in values:

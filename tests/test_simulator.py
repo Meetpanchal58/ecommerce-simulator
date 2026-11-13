@@ -10,7 +10,7 @@ from ecommerce_sim.simulate import run
 from ecommerce_sim.store import Store
 from ecommerce_sim.validate import TABLES, validate
 
-SMALL = dict(n_products=250, n_sellers=30, launch_customers=300, daily_new_visitors=15)
+SMALL = dict(n_products=250, n_sellers=30, traffic_scale=0.05, daily_new_visitors=15)
 QUIET = lambda *args, **kwargs: None  # noqa: E731
 
 

@@ -123,7 +123,7 @@ DuckDB (`SELECT * FROM 'data/clickstream/*/*.parquet'`).
 | Seed | 42 | `--seed` / `ECOMSIM_SEED` |
 | Size preset | full | `--size small/medium/full` / `ECOMSIM_SIZE` |
 | Product styles | 10,000 | `--products` / `ECOMSIM_PRODUCTS` |
-| Launch customers | 9,000 | `--launch-customers` / `ECOMSIM_LAUNCH_CUSTOMERS` |
+| Traffic scale | 1.0 | `--traffic-scale` / `ECOMSIM_TRAFFIC_SCALE` |
 
 The product catalogue comes from the public Kaggle *Fashion Product Images* dataset, cleaned.
 
