@@ -1,6 +1,9 @@
 """Command line: ecommerce-sim load | increment | derive | validate."""
 import argparse
 import sys
+from datetime import date
+
+import pandas as pd
 
 from . import settings as settings_module
 
@@ -15,12 +18,22 @@ def main(argv=None) -> int:
     parser.add_argument("--data-dir", help="where to write the data (default: ./data)")
     parser.add_argument("--size", choices=["small", "medium", "full", "large"],
                         help="shop size preset (default: full): small ~4 min, medium ~10 min, full ~18 min, large ~75 min to simulate")
-    parser.add_argument("--today", help="last day to simulate, YYYY-MM-DD (default: today)")
-    parser.add_argument("--start-date", help="day the shop opens (default: 2025-01-01)")
+    parser.add_argument("--from", "--start-date", dest="start_date",
+                        help="first day of data = the day the shop opens, YYYY-MM-DD (default: 2025-01-01)")
+    parser.add_argument("--to", "--today", dest="today", help="last day of data, YYYY-MM-DD (default: today)")
+    parser.add_argument("--months", type=int,
+                        help="load only the last N months up to --to (sets --from); e.g. --months 6")
     parser.add_argument("--seed", help="random seed (default: 42)")
     parser.add_argument("--products", help="number of product styles (default: 10000)")
     parser.add_argument("--traffic-scale", help="marketing budgets and clicks vs the full shop (full = 1.0)")
     args = parser.parse_args(argv)
+    if args.months:
+        if args.start_date:
+            parser.error("use either --from or --months, not both")
+        end = pd.Timestamp(args.today or date.today().isoformat())
+        args.start_date = f"{(end - pd.DateOffset(months=args.months)).replace(day=1):%Y-%m-%d}"
+    if args.command == "increment" and args.start_date:
+        parser.error("--from / --months only apply to load (increment continues the existing data)")
     settings = settings_module.from_environment(
         size=args.size, data_dir=args.data_dir, today=args.today, start_date=args.start_date, seed=args.seed,
         n_products=args.products, traffic_scale=args.traffic_scale)

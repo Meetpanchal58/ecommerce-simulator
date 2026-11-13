@@ -45,6 +45,16 @@ ecommerce-sim increment                # does nothing if already up to date
 ecommerce-sim load --size small        # ~5 minutes   (medium ~15 min, full ~30 min)
 ```
 
+**Choose the date range** (the first day is the day the shop opens):
+
+```bash
+ecommerce-sim load --from 2025-06-01 --to 2025-12-31     # a fixed period
+```
+
+```bash
+ecommerce-sim load --months 6                            # the last 6 months up to today
+```
+
 **Extras:**
 
 ```bash
@@ -118,8 +128,8 @@ DuckDB (`SELECT * FROM 'data/clickstream/*/*.parquet'`).
 | Setting | Default | Command-line flag / environment variable |
 |---|---|---|
 | Data folder | `./data` | `--data-dir` / `ECOMSIM_DATA_DIR` |
-| Last day | today | `--today` / `ECOMSIM_TODAY` |
-| Opening day | 2025-01-01 | `--start-date` / `ECOMSIM_START_DATE` |
+| Last day | today | `--to` / `ECOMSIM_TODAY` |
+| First day (shop opens) | 2025-01-01 | `--from` or `--months N` / `ECOMSIM_START_DATE` |
 | Seed | 42 | `--seed` / `ECOMSIM_SEED` |
 | Size preset | full | `--size small/medium/full` / `ECOMSIM_SIZE` |
 | Product styles | 10,000 | `--products` / `ECOMSIM_PRODUCTS` |
