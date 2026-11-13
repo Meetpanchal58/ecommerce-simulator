@@ -26,22 +26,22 @@ LANDING_RATE = 0.78          # share of ad clicks that load the site (the rest b
 
 # Always-on paid campaigns: (channel, campaign type, objective, audience, monthly budget in Rs)
 ALWAYS_ON_PAID = [
-    ("Google Search", "Brand", "Acquisition", "All", 18_000),
-    ("Google Search", "Generic", "Acquisition", "New", 25_000),
-    ("Google Shopping", "Performance", "Acquisition", "All", 22_000),
-    ("Bing Search", "Generic", "Acquisition", "New", 4_000),
-    ("Meta", "Prospecting", "Acquisition", "New", 23_000),
-    ("Meta", "Retargeting", "Retargeting", "Active", 7_000),
-    ("Instagram", "Prospecting", "Awareness", "New", 8_000),
-    ("YouTube", "Brand", "Awareness", "All", 14_000),
-    ("DSP Display", "Retargeting", "Retargeting", "Lapsed", 12_000),
+    ("Google Search", "Brand", "Acquisition", "All", 27_000),
+    ("Google Search", "Generic", "Acquisition", "New", 37_500),
+    ("Google Shopping", "Performance", "Acquisition", "All", 33_000),
+    ("Bing Search", "Generic", "Acquisition", "New", 6_000),
+    ("Meta", "Prospecting", "Acquisition", "New", 34_500),
+    ("Meta", "Retargeting", "Retargeting", "Active", 10_500),
+    ("Instagram", "Prospecting", "Awareness", "New", 12_000),
+    ("YouTube", "Brand", "Awareness", "All", 21_000),
+    ("DSP Display", "Retargeting", "Retargeting", "Lapsed", 18_000),
 ]
 # Paid channels used for each kind of event, and the event budget (Rs per event day).
 EVENT_CHANNELS = {
-    "Mega Sale": (["Google Search", "Google Shopping", "Meta", "Instagram", "YouTube", "DSP Display"], 9_000),
-    "Festival": (["Google Search", "Meta", "Instagram"], 3_000),
-    "Clearance": (["Google Shopping", "Meta", "Instagram"], 4_000),
-    "Season Sale": (["Google Search", "Meta"], 2_500),
+    "Mega Sale": (["Google Search", "Google Shopping", "Meta", "Instagram", "YouTube", "DSP Display"], 13_500),
+    "Festival": (["Google Search", "Meta", "Instagram"], 4_500),
+    "Clearance": (["Google Shopping", "Meta", "Instagram"], 6_000),
+    "Season Sale": (["Google Search", "Meta"], 3_750),
 }
 # Platforms report more conversions than the shop sees (view-through, cross-device).
 PLATFORM_OVER_REPORTING = {"Paid Search": 1.08, "Paid Social": 1.35, "Display": 1.6, "Affiliate": 1.0, "CRM": 1.0}

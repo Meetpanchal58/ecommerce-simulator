@@ -19,8 +19,8 @@ import pandas as pd
 
 from .randomness import stream
 
-COVER_DAYS = 28             # a purchase order covers about four weeks of demand
-SAFETY_DAYS = 7
+COVER_DAYS = 21             # a purchase order covers about three weeks of demand
+SAFETY_DAYS = 3
 MIN_ORDER = 6
 DEMAND_SMOOTHING = 0.08     # weight of today's demand in the running average
 
@@ -45,7 +45,8 @@ class Inventory:
         size_weight = skus["size"].map({"XS": 0.5, "S": 0.9, "M": 1.3, "L": 1.2, "XL": 0.8, "XXL": 0.45,
                                         "6": 0.6, "7": 0.9, "8": 1.2, "9": 1.2, "10": 0.9, "11": 0.5,
                                         "Free Size": 2.2}).fillna(1.0).to_numpy()
-        self.expected_daily = 0.04 * size_weight * rng.uniform(0.6, 1.5, n)
+        # The buyer's first forecast is often wrong (popular items get under-stocked).
+        self.expected_daily = 0.005 * size_weight * rng.lognormal(0, 0.6, n)
         self.on_hand = np.zeros(n, dtype=np.int64)
         self.on_order = np.zeros(n, dtype=np.int64)
         self.stocked = np.zeros(n, dtype=bool)
@@ -82,7 +83,7 @@ class Inventory:
         rng = stream(self.settings.seed, "inventory.launch", day)
         due = ~self.stocked & (self.launch <= np.datetime64(day))
         for i in np.flatnonzero(due):
-            quantity = max(MIN_ORDER, int(rng.poisson(self.expected_daily[i] * 45)) + 4)
+            quantity = max(MIN_ORDER, int(rng.poisson(self.expected_daily[i] * 30)) + 3)
             created = day - pd.Timedelta(days=int(self.lead_time[i]) + 2)
             self._raise_po(rng, i, created, quantity, initial=True, arrive_by=day)
             self.stocked[i] = True
@@ -114,18 +115,20 @@ class Inventory:
         """Units coming back on a later day: kind 'restock' or 'damaged'."""
         self.returns_in[pd.Timestamp(day).normalize()].append((i, units, kind))
 
-    def close_day(self, day: pd.Timestamp, moves: dict, demand: np.ndarray) -> None:
+    def close_day(self, day: pd.Timestamp, moves: dict, demand: np.ndarray, lost: np.ndarray) -> None:
         """Record today's movements, update demand estimates and raise purchase orders."""
         rng = stream(self.settings.seed, "inventory.reorder", day)
         self.expected_daily = (1 - DEMAND_SMOOTHING) * self.expected_daily + DEMAND_SMOOTHING * demand
+        for i in np.flatnonzero(lost):
+            _ = moves[i]                           # creates an empty entry so the SKU still gets a row
         for i, move in moves.items():
             closing = int(self.on_hand[i])
             opening = closing - move["received"] - move["restocked"] + move["sold"]
-            lost = max(0, int(demand[i]) - move["sold"])
+            missed = int(lost[i])
             status = "Out of Stock" if closing <= 0 else ("Low" if closing <= self.reorder_point(i) else "Healthy")
             self.history_rows.append((day, self.sku_ids[i], self.product_ids[i], self.warehouse[i], opening,
                                       move["received"], move["sold"], move["restocked"], move["damaged"], closing,
-                                      int(demand[i]), lost, status))
+                                      int(demand[i]), missed, status))
         selling = self.stocked & (np.isnat(self.discontinue) | (self.discontinue > np.datetime64(day + pd.Timedelta(days=45))))
         reorder_point = self.expected_daily * (self.lead_time + SAFETY_DAYS)
         need = selling & ((self.on_hand + self.on_order) <= reorder_point)

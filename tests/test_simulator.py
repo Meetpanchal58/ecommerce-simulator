@@ -59,7 +59,8 @@ def test_order_status_only_shows_milestones_reached(shops):
     today = pd.Timestamp("2025-02-20") + pd.Timedelta(days=1)
     for column in ("delivered_at", "refunded_at", "return_requested_at", "shipped_at"):
         assert (sales[column].dropna() < today).all()
-    recent = sales[sales.placed_at >= "2025-02-19"]
+    recent = sales[sales.placed_at >= "2025-02-10"]
+    assert len(recent) > 0
     assert not recent.order_status.isin(["Delivered", "Refunded"]).all()
 
 

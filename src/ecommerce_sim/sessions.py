@@ -71,13 +71,13 @@ class Traffic:
                query=None, order_id=None, dwell=None) -> str:
         event_id = f"E{self.next_event:011d}"
         self.next_event += 1
-        s["time"] = min(s["time"], s["day_end"])          # a visit never runs into the next day
         self.click_rows.append((event_id, s["session_id"], s["anonymous_id"], s["person"]["customer_id"],
                                 s["time"], event_type, page,
                                 None if product is None else self.product_ids[product],
                                 sku, position, query, s["device"], s["traffic_source"], s["utm_source"],
                                 s["utm_medium"], s["utm_campaign"], s["campaign_id"], order_id, dwell))
-        s["time"] += pd.Timedelta(seconds=int(dwell if dwell else s["rng"].integers(3, 25)))
+        step = pd.Timedelta(seconds=int(dwell if dwell else s["rng"].integers(3, 25)))
+        s["time"] = min(s["time"] + step, s["day_end"])   # a visit never runs into the next day
         return event_id
 
     def _shown(self, s: dict, event_id: str, surface: str, positions: np.ndarray) -> None:
@@ -245,6 +245,7 @@ class Traffic:
                 sku = self._choose_sku(rng, person, p)
                 w.demand[sku] += 1
                 if w.inventory.available(sku) <= 0:
+                    w.lost[sku] += 1
                     self._event(s, "out_of_stock_view", "pdp", product=p, sku=w.inventory.sku_ids[sku])
                     if customer_id and rng.random() < 0.02:
                         w.orders.add_ticket(rng, "Product Question", s["time"] + pd.Timedelta(minutes=10),
@@ -260,6 +261,26 @@ class Traffic:
             clicked_similar = self._clicks(rng, person, similar, 0.10)
             if clicked_similar and len(viewed) < 6:
                 viewed.append((event_id, clicked_similar[0], int(np.flatnonzero(similar == clicked_similar[0])[0]) + 1))
+
+        # With something in the cart, shoppers often look for a matching item (a belt for trousers).
+        if cart and rng.random() < 0.55:
+            matches = [a for a in ref.COMPLEMENTS.get(self.article[cart[0][0]], []) if a in self.by_article]
+            if matches:
+                article = str(matches[int(rng.integers(0, len(matches)))])
+                event_id = self._event(s, "plp_view", "plp", dwell=int(rng.integers(5, 30)))
+                shown = self._listing(rng, person, article)
+                self._shown(s, event_id, "plp", shown)
+                for p in self._clicks(rng, person, shown, 0.30)[:2]:
+                    slot = int(np.flatnonzero(shown == p)[0]) + 1
+                    s["shown"][(event_id, p)][8] = True
+                    self._event(s, "pdp_view", "pdp", product=p, position=slot, dwell=int(rng.gamma(2.0, 20)))
+                    if len(cart) < 4 and self._wants(rng, person, p, deal_mood * 5.0):
+                        sku = self._choose_sku(rng, person, p)
+                        w.demand[sku] += 1
+                        if w.inventory.available(sku) > 0:
+                            self._event(s, "add_to_cart", "pdp", product=p, sku=w.inventory.sku_ids[sku])
+                            s["shown"][(event_id, p)][9] = True
+                            cart.append((p, sku, 1))
 
         # Anonymous visitors sometimes create an account mid-visit (welcome coupon prompt),
         # much more often in the launch weeks and when they have something in the cart.
@@ -280,7 +301,7 @@ class Traffic:
         score = self.taste.score(person, np.array([p]), self.month, self.prices[[p]])[0]
         discount = 1 - self.prices[p] / self.mrp[p]
         price_pull = 1 + discount * person["deal_seeking"] * 1.5
-        chance = 0.022 * person["buy_propensity"] * min(score, 4.0) * price_pull * deal_mood
+        chance = 0.015 * person["buy_propensity"] * min(score, 4.0) * price_pull * deal_mood
         return rng.random() < min(chance, 0.6)
 
     def _login(self, s: dict, rng) -> None:
@@ -321,6 +342,15 @@ class Traffic:
                     return
                 continue
             break
+        # Stock may have changed since items went into the cart: merge repeats and keep
+        # only what is still available.
+        merged = {}
+        for p, sku, units in cart:
+            merged[(p, sku)] = merged.get((p, sku), 0) + units
+        cart = [(p, sku, min(units, w.inventory.available(sku))) for (p, sku), units in merged.items()]
+        cart = [line for line in cart if line[2] > 0]
+        if not cart:
+            return
         address = w.population.addresses_of(person["customer_id"])[-1]
         order = w.place_order(rng, s["time"], customer, person, address, cart, s)
         self._event(s, "purchase", "confirmation", order_id=order["order_id"])

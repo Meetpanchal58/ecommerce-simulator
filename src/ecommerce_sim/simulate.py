@@ -138,6 +138,7 @@ class World:
 
         self.moves = defaultdict(new_moves)
         self.demand = np.zeros(len(self.inventory.sku_ids))
+        self.lost = np.zeros(len(self.inventory.sku_ids))
         self.inventory.stock_new_launches(day)
         self.inventory.receive(day, self.moves)
         self.orders.process_exchanges(rng, day, self.inventory, self.moves)
@@ -151,7 +152,7 @@ class World:
 
         self._prime_and_deletions(rng, day)
         spend = self._fill_platform_results(rng, day, spend_rows)
-        self.inventory.close_day(day, self.moves, self.demand)
+        self.inventory.close_day(day, self.moves, self.demand, self.lost)
 
         rows = self.traffic.take_rows()
         rows["crm_sends"] = self.crm.take_rows()

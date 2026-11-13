@@ -138,7 +138,7 @@ class OrderBook:
     def _shipping_plan(self, rng, at, address, customer, warehouse, events) -> dict:
         """Courier, promised date, and when the parcel really ships and arrives."""
         same_region = ref.WAREHOUSES[warehouse][1] == address["region"]
-        promise_days = (3 if same_region else 5) + (1 if address["city_tier"] == "Tier 3" else 0)
+        promise_days = (5 if same_region else 7) + (1 if address["city_tier"] == "Tier 3" else 0)
         if customer["is_prime"]:
             promise_days -= 1
         courier = str(rng.choice(ref.COURIERS, p=ref.COURIER_SHARE))

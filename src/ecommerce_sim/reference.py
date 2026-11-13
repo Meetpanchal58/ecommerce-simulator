@@ -133,9 +133,9 @@ SELLER_WORDS_2 = ["Retail", "Traders", "Fashions", "Enterprises", "Apparel", "Li
 # ----------------------------------------------------------------------------- orders
 PAYMENT_METHODS = ["UPI", "COD", "Credit Card", "Debit Card", "Net Banking", "Wallet"]
 PAYMENT_SHARE_TIER = {
-    "Tier 1": [0.42, 0.12, 0.20, 0.12, 0.06, 0.08],
-    "Tier 2": [0.40, 0.25, 0.12, 0.11, 0.05, 0.07],
-    "Tier 3": [0.34, 0.40, 0.07, 0.09, 0.04, 0.06],
+    "Tier 1": [0.38, 0.26, 0.16, 0.10, 0.04, 0.06],
+    "Tier 2": [0.32, 0.42, 0.09, 0.09, 0.03, 0.05],
+    "Tier 3": [0.24, 0.58, 0.05, 0.07, 0.02, 0.04],
 }
 PAYMENT_FAILURE_RATE = {"UPI": 0.06, "COD": 0.0, "Credit Card": 0.05, "Debit Card": 0.07,
                         "Net Banking": 0.09, "Wallet": 0.04}
