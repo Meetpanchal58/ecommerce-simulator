@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ecommerce-simulator"
+version = "1.0.0"
+description = "Day-by-day, relational e-commerce data simulator: catalog, marketing, inventory, customers, sales."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Meet Panchal" }]
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.0",
+    "pandas>=2.2",
+    "pyarrow>=15",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.5"]
+sql = ["duckdb>=1.0"]
+
+[project.scripts]
+ecommerce-sim = "ecommerce_sim.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ecommerce_sim = ["resources/*.csv"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
