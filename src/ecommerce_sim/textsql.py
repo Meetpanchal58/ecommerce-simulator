@@ -64,7 +64,7 @@ def build(data_dir) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     kb = []
     for name, info in TABLES.items():
-        columns = list(store.read(name).columns)
+        columns = list(store.dtypes(name))
         kb.append({"table": name, "description": info["about"], "grain": info["grain"], "keys": info["keys"],
                    "column_notes": info["columns"], "columns": columns})
     (out / "text_to_sql_kb.json").write_text(json.dumps(kb, indent=2))

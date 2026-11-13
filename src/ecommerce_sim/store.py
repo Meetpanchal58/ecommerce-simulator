@@ -54,6 +54,14 @@ class Store:
                 return pd.concat([pd.read_parquet(p, columns=columns) for p in parts], ignore_index=True)
         return pd.DataFrame(columns=columns)
 
+    def dtypes(self, name: str) -> dict:
+        """Column types of a table, read from the file metadata only (cheap even for huge tables)."""
+        import pyarrow.parquet as pq
+        single = self.root / f"{name}.parquet"
+        path = single if single.exists() else next(iter(sorted((self.root / name).glob("month=*/part.parquet"))))
+        empty = pq.read_schema(path).empty_table().to_pandas()
+        return {column: str(dtype) for column, dtype in empty.dtypes.items()}
+
     # ------------------------------------------------------------------ monthly event tables
     def append_month(self, name: str, month: str, frame: pd.DataFrame) -> None:
         """Add rows to one month's file of a big event table (e.g. month='2025-03')."""

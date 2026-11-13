@@ -17,7 +17,7 @@ def main(argv=None) -> int:
                              "textsql: Text-to-SQL knowledge base and questions; docs: write docs/schema.md")
     parser.add_argument("--data-dir", help="where to write the data (default: ./data)")
     parser.add_argument("--size", choices=["small", "medium", "full", "large"],
-                        help="shop size preset (default: full): small ~4 min, medium ~10 min, full ~18 min, large ~75 min to simulate")
+                        help="shop size preset (default: full): small ~4 min, medium ~10 min, full ~18 min, large ~110 min to simulate")
     parser.add_argument("--from", "--start-date", dest="start_date",
                         help="first day of data = the day the shop opens, YYYY-MM-DD (default: 2025-01-01)")
     parser.add_argument("--to", "--today", dest="today", help="last day of data, YYYY-MM-DD (default: today)")
@@ -60,7 +60,7 @@ def main(argv=None) -> int:
         from .store import Store
         store = Store(settings.data_dir)
         from .schema import TABLES
-        types = {name: {col: str(dtype) for col, dtype in store.read(name).dtypes.items()} for name in TABLES}
+        types = {name: store.dtypes(name) for name in TABLES}
         from pathlib import Path
         Path("docs").mkdir(exist_ok=True)
         Path("docs/schema.md").write_text(markdown(types))

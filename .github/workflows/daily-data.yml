@@ -52,8 +52,12 @@ jobs:
         run: |
           python -c "from ecommerce_sim.download import package; package('data_${{ matrix.size }}', '${{ matrix.size }}', 'dist')"
           gh release view data-latest >/dev/null 2>&1 || \
-            gh release create data-latest --title "Latest data" --notes "Generated data, refreshed every night by the Daily data workflow. Download with: ecommerce-sim download --size small|full" --latest=false
-          gh release upload data-latest dist/ecommerce-sim-data-${{ matrix.size }}.tar.gz --clobber
+            gh release create data-latest --title "Latest data" --notes "Generated data, refreshed every night by the Daily data workflow. Download with: ecommerce-sim download --size small|full|large" --latest=false
+          gh release upload data-latest dist/ecommerce-sim-data-${{ matrix.size }}.tar.gz* --clobber
+          # then remove files of this size that this run did not upload (a big shop may switch between one file and parts)
+          for old in $(gh release view data-latest --json assets --jq '.assets[].name' | grep "^ecommerce-sim-data-${{ matrix.size }}\.tar\.gz" || true); do
+            [ -e "dist/$old" ] || gh release delete-asset data-latest "$old" -y
+          done
       - name: Publish to Hugging Face Datasets
         if: env.HAS_HF == 'true'
         env:

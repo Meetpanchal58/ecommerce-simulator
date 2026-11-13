@@ -32,6 +32,10 @@ ecommerce-sim download                 # full shop into ./data (about a minute)
 ecommerce-sim download --size small    # a small shop for laptops and quick experiments
 ```
 
+```bash
+ecommerce-sim download --size large    # 4x the full shop's traffic, about 2.2 GB
+```
+
 **Keep a local copy up to date.** If you downloaded (or simulated) earlier and did not
 download again, add the missing days:
 
@@ -74,6 +78,11 @@ ecommerce-sim textsql     # Text-to-SQL knowledge base + verified questions (pip
 | small | 1,500 | ~6k | ~10k |
 | medium | 5,000 | ~18k | ~30k |
 | full | 10,000 | ~35k | ~60k |
+| large | 20,000 | 158,797 | 228,963 |
+
+**large**, measured on 2025-01-01 → 2026-11-13: Rs 40.8 crore revenue, 280k sale lines,
+36.5M clickstream events, 128M impressions, 2.3 GB on disk. Downloading it is the quick
+route; simulating it takes about 1 h 50 min and 10 GB of RAM.
 
 ## The story
 
@@ -131,7 +140,7 @@ DuckDB (`SELECT * FROM 'data/clickstream/*/*.parquet'`).
 | Last day | today | `--to` / `ECOMSIM_TODAY` |
 | First day (shop opens) | 2025-01-01 | `--from` or `--months N` / `ECOMSIM_START_DATE` |
 | Seed | 42 | `--seed` / `ECOMSIM_SEED` |
-| Size preset | full | `--size small/medium/full` / `ECOMSIM_SIZE` |
+| Size preset | full | `--size small/medium/full/large` / `ECOMSIM_SIZE` |
 | Product styles | 10,000 | `--products` / `ECOMSIM_PRODUCTS` |
 | Traffic scale | 1.0 | `--traffic-scale` / `ECOMSIM_TRAFFIC_SCALE` |
 
