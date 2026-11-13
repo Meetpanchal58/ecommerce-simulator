@@ -34,7 +34,7 @@ def test_all_validation_checks_pass(shops):
     assert validate(shops / "stepwise", print_results=False)
 
 
-@pytest.mark.parametrize("table", TABLES)
+@pytest.mark.parametrize("table", TABLES + ["impressions"])
 def test_increment_gives_the_same_data_as_one_load(shops, table):
     full = Store(shops / "full").read(table)
     stepwise = Store(shops / "stepwise").read(table)

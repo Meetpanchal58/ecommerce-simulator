@@ -34,6 +34,11 @@ def hours(n: float) -> pd.Timedelta:
     return pd.Timedelta(hours=float(n))
 
 
+def out_for_delivery(shipped, delivered):
+    """The van leaves at 07:00 on delivery day, or 30 minutes after a same-day shipment."""
+    return min(max(delivered.normalize() + pd.Timedelta(hours=7), shipped + pd.Timedelta(minutes=30)), delivered)
+
+
 class OrderBook:
     def __init__(self, settings):
         self.settings = settings
@@ -153,7 +158,7 @@ class OrderBook:
             delivered += pd.Timedelta(days=int(rng.integers(1, 3)))
         delivered = delivered.replace(hour=int(np.clip(delivered.hour, 9, 20)))
         return {"courier": courier, "promised": (at + pd.Timedelta(days=promise_days)).normalize(),
-                "shipped": shipped, "out_for_delivery": delivered.normalize() + pd.Timedelta(hours=7),
+                "shipped": shipped, "out_for_delivery": out_for_delivery(shipped, delivered),
                 "delivered": delivered}
 
     # ------------------------------------------------------------------ the future of a line
@@ -292,7 +297,7 @@ class OrderBook:
             line["shipped_at"] = at + hours(rng.uniform(8, 30))
             delivered = line["shipped_at"] + pd.Timedelta(days=float(rng.uniform(1.5, 4)))
             line["delivered_at"] = delivered.replace(hour=int(np.clip(delivered.hour, 9, 20)))
-            line["out_for_delivery_at"] = line["delivered_at"].normalize() + pd.Timedelta(hours=7)
+            line["out_for_delivery_at"] = out_for_delivery(line["shipped_at"], line["delivered_at"])
             self.next_line += 1
             self.next_shipment += 1
             original["exchanged_at"] = line["delivered_at"]

@@ -54,7 +54,6 @@ def every_reference_exists(t):
         (t["sales"].session_id, t["clickstream"].session_id, "order sessions"),
         (t["clickstream"].customer_id, t["customers"].customer_id, "clickstream customers"),
         (t["clickstream"].product_id, t["product_master"].product_id, "clickstream products"),
-        (t["impressions"].page_event_id, t["clickstream"].event_id, "impression page views"),
         (t["purchase_orders"].sku_id, t["product_skus"].sku_id, "PO SKUs"),
         (t["product_reviews"].transaction_id, t["sales"].transaction_id, "reviewed lines"),
         (t["support_contacts"].agent_id, t["agents"].agent_id, "support agents"),
@@ -122,13 +121,15 @@ def line_amounts_add_up(t):
 
 @check("money")
 def sold_price_matches_price_history(t):
-    s = t["sales"][t["sales"].line_type == "Sale"].copy()
-    s["day"] = s.placed_at.dt.normalize()
-    ph = t["price_history"]
-    merged = s.merge(ph, on="product_id")
-    merged = merged[(merged.valid_from <= merged.day) & (merged.valid_to.isna() | (merged.valid_to >= merged.day))]
-    if len(merged) != len(s):
-        return False, f"{len(s) - len(merged)} lines without a price period"
+    s = t["sales"].loc[t["sales"].line_type == "Sale", ["product_id", "placed_at", "unit_price"]]
+    s = s.assign(day=s.placed_at.dt.normalize().astype("datetime64[ns]")).sort_values("day")
+    ph = t["price_history"][["product_id", "valid_from", "valid_to", "selling_price"]]
+    ph = ph.assign(valid_from=ph.valid_from.astype("datetime64[ns]")).sort_values("valid_from")
+    # the price period in force on the day of sale: the latest one that started on or before it
+    merged = pd.merge_asof(s, ph, left_on="day", right_on="valid_from", by="product_id")
+    covered = merged.valid_from.notna() & (merged.valid_to.isna() | (merged.valid_to >= merged.day))
+    if not covered.all():
+        return False, f"{int((~covered).sum())} lines without a price period"
     bad = int(((merged.unit_price - merged.selling_price).abs() > 0.01).sum())
     return bad == 0, f"{bad} lines sold at a different price than price_history"
 
@@ -192,14 +193,22 @@ def every_order_has_its_visit(t):
 
 
 @check("behaviour")
-def clicks_and_impressions_agree(t):
-    imp = t["impressions"]
-    clicked = imp[imp.clicked]
+def impressions_match_clickstream(t):
+    """Impressions are checked one month at a time (they are the biggest table)."""
     c = t["clickstream"]
-    views = c[c.event_type == "pdp_view"][["session_id", "product_id"]].drop_duplicates()
-    merged = clicked.merge(views, on=["session_id", "product_id"], how="left", indicator=True)
-    bad = int((merged._merge == "left_only").sum())
-    return bad == 0, f"{bad} clicked impressions without a product view"
+    month = c.event_at.dt.strftime("%Y-%m")
+    for path in t["_impression_months"]:
+        imp = pd.read_parquet(path, columns=["page_event_id", "session_id", "product_id", "clicked"])
+        this_month = c[month == path.parent.name.removeprefix("month=")]
+        ok, detail = contained(imp.page_event_id, this_month.event_id, "impression page views")
+        if not ok:
+            return False, f"{path.parent.name}: {detail}"
+        views = this_month.loc[this_month.event_type == "pdp_view", ["session_id", "product_id"]].drop_duplicates()
+        merged = imp[imp.clicked].merge(views, on=["session_id", "product_id"], how="left", indicator=True)
+        bad = int((merged._merge == "left_only").sum())
+        if bad:
+            return False, f"{path.parent.name}: {bad} clicked impressions without a product view"
+    return True, ""
 
 
 @check("behaviour")
@@ -233,13 +242,16 @@ def statuses_are_valid(t):
 TABLES = ["product_master", "product_skus", "sellers", "warehouses", "agents", "sale_events", "promotions",
           "campaigns", "marketing_plan", "marketing_spend", "marketing_attribution", "crm_sends",
           "purchase_orders", "inventory_history", "inventory_live", "price_history", "customers", "customer_pii",
-          "customer_addresses", "auth_events", "clickstream", "impressions", "sales", "product_reviews",
-          "support_contacts"]
+          "customer_addresses", "auth_events", "clickstream", "sales", "product_reviews", "support_contacts"]
+# The biggest tables are read with only the columns the checks use, to keep memory low.
+COLUMNS = {"clickstream": ["event_id", "session_id", "customer_id", "product_id", "event_type", "order_id", "event_at"],
+           "crm_sends": ["send_id", "campaign_id", "test_group", "sent_at", "clicked_at"]}
 
 
 def validate(data_dir, print_results=True) -> bool:
     store = Store(data_dir)
-    tables = {name: store.read(name) for name in TABLES}
+    tables = {name: store.read(name, columns=COLUMNS.get(name)) for name in TABLES}
+    tables["_impression_months"] = sorted((store.root / "impressions").glob("month=*/part.parquet"))
     tables["_today"] = pd.Timestamp(tables["inventory_live"].updated_at.max())
     failures = 0
     for group, function in CHECKS:
