@@ -14,7 +14,7 @@ def main(argv=None) -> int:
                              "textsql: Text-to-SQL knowledge base and questions; docs: write docs/schema.md")
     parser.add_argument("--data-dir", help="where to write the data (default: ./data)")
     parser.add_argument("--size", choices=["small", "medium", "full", "large"],
-                        help="shop size preset (default: full): small ~5 min, medium ~15 min, full ~30 min to simulate")
+                        help="shop size preset (default: full): small ~4 min, medium ~10 min, full ~18 min, large ~75 min to simulate")
     parser.add_argument("--today", help="last day to simulate, YYYY-MM-DD (default: today)")
     parser.add_argument("--start-date", help="day the shop opens (default: 2025-01-01)")
     parser.add_argument("--seed", help="random seed (default: 42)")
@@ -27,7 +27,7 @@ def main(argv=None) -> int:
 
     if args.command == "download":
         from .download import download
-        download(settings.data_dir, {"large": "full"}.get(args.size, args.size or "full"))
+        download(settings.data_dir, args.size or "full")
         return 0
     if args.command in ("load", "increment"):
         from .simulate import run

@@ -15,6 +15,8 @@ SIZES = {
     "small": {"n_products": 1_500, "n_sellers": 80, "traffic_scale": 0.17, "daily_new_visitors": 30},
     "medium": {"n_products": 5_000, "n_sellers": 200, "traffic_scale": 0.5, "daily_new_visitors": 80},
     "full": {"n_products": 10_000, "n_sellers": 400, "traffic_scale": 1.0, "daily_new_visitors": 160},
+    # About 4x the full shop: enough interactions for sequence and two-tower recommenders.
+    "large": {"n_products": 20_000, "n_sellers": 800, "traffic_scale": 4.0, "daily_new_visitors": 640},
 }
 
 
@@ -57,7 +59,6 @@ def from_environment(size: str | None = None, **overrides) -> Settings:
         "daily_new_visitors": os.getenv("ECOMSIM_DAILY_NEW_VISITORS"),
     }
     size = size or os.getenv("ECOMSIM_SIZE") or "full"
-    size = {"large": "full"}.get(size, size)          # "large" is another name for "full"
     if size not in SIZES:
         raise ValueError(f"size must be one of {', '.join(SIZES)}")
     values = dict(SIZES[size])

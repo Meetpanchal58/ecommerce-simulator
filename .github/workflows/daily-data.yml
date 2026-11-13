@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        size: [small, full]
+        size: [small, full, large]
     env:
       GH_TOKEN: ${{ github.token }}
       ECOMSIM_DATA_REPO: ${{ github.repository }}

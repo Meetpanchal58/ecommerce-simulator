@@ -50,7 +50,9 @@ class CRM:
         if "WeeklyNewsletter" in name:
             if day.weekday() != 1:
                 return []
-            return [c["customer_id"] for c in population.customers if c["account_status"] == "Active"]
+            # Sunset rule: newsletters go to customers active in the last 90 days.
+            return [c["customer_id"] for c in population.customers
+                    if c["account_status"] == "Active" and (day - c["last_seen_at"]).days <= 90]
         if "WelcomeSeries" in name:
             return [c["customer_id"] for c in population.customers if c["signup_at"].normalize() == yesterday]
         if "CartAbandonment" in name:
