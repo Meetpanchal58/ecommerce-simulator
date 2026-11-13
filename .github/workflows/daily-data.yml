@@ -26,6 +26,8 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       ECOMSIM_DATA_REPO: ${{ github.repository }}
+      HAS_HF: ${{ secrets.HF_TOKEN != '' }}
+      HAS_KAGGLE: ${{ secrets.KAGGLE_API_TOKEN != '' && (vars.KAGGLE_USERNAME != '' || secrets.KAGGLE_USERNAME != '') }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -52,3 +54,18 @@ jobs:
           gh release view data-latest >/dev/null 2>&1 || \
             gh release create data-latest --title "Latest data" --notes "Generated data, refreshed every night by the Daily data workflow. Download with: ecommerce-sim download --size small|full" --latest=false
           gh release upload data-latest dist/ecommerce-sim-data-${{ matrix.size }}.tar.gz --clobber
+      - name: Publish to Hugging Face Datasets
+        if: env.HAS_HF == 'true'
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          pip install "huggingface_hub==0.34.4"
+          python -m ecommerce_sim.publish huggingface data_${{ matrix.size }} ${{ matrix.size }}
+      - name: Publish to Kaggle Datasets
+        if: env.HAS_KAGGLE == 'true'
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+          KAGGLE_USERNAME: ${{ vars.KAGGLE_USERNAME || secrets.KAGGLE_USERNAME }}
+        run: |
+          pip install "kaggle==1.8.0"
+          python -m ecommerce_sim.publish kaggle data_${{ matrix.size }} ${{ matrix.size }}
