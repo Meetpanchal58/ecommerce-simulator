@@ -13,7 +13,7 @@ def main(argv=None) -> int:
                              "derive: build analysis tables (churn, affinity, ...); validate: check the data; "
                              "textsql: Text-to-SQL knowledge base and questions; docs: write docs/schema.md")
     parser.add_argument("--data-dir", help="where to write the data (default: ./data)")
-    parser.add_argument("--size", choices=["small", "medium", "full"],
+    parser.add_argument("--size", choices=["small", "medium", "full", "large"],
                         help="shop size preset (default: full): small ~5 min, medium ~15 min, full ~30 min to simulate")
     parser.add_argument("--today", help="last day to simulate, YYYY-MM-DD (default: today)")
     parser.add_argument("--start-date", help="day the shop opens (default: 2025-01-01)")
@@ -27,7 +27,7 @@ def main(argv=None) -> int:
 
     if args.command == "download":
         from .download import download
-        download(settings.data_dir, args.size or "full")
+        download(settings.data_dir, {"large": "full"}.get(args.size, args.size or "full"))
         return 0
     if args.command in ("load", "increment"):
         from .simulate import run

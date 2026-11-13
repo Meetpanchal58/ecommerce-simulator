@@ -21,31 +21,49 @@ analysis, data science and data engineering projects.
 pip install "ecommerce-simulator @ git+https://github.com/Meetpanchal58/ecommerce-simulator"
 ```
 
+**Fastest: download the ready-made data** (refreshed every night by a GitHub Action, so it is
+always up to yesterday):
+
 ```bash
-ecommerce-sim load          # 2025-01-01 -> today, into ./data
+ecommerce-sim download                 # full shop into ./data (about a minute)
 ```
 
 ```bash
-ecommerce-sim increment     # add the days since the last run (does nothing if up to date)
+ecommerce-sim download --size small    # a small shop for laptops and quick experiments
+```
+
+**Keep a local copy up to date.** If you downloaded (or simulated) earlier and did not
+download again, add the missing days:
+
+```bash
+ecommerce-sim increment                # does nothing if already up to date
+```
+
+**Simulate it yourself** (for a different seed, size or opening day):
+
+```bash
+ecommerce-sim load --size small        # ~5 minutes   (medium ~15 min, full ~30 min)
+```
+
+**Extras:**
+
+```bash
+ecommerce-sim derive      # churn labels, monthly customer features, product affinity, weekly MMM table
 ```
 
 ```bash
-ecommerce-sim derive        # churn labels, monthly customer features, product affinity, weekly MMM table
+ecommerce-sim validate    # re-run all consistency checks
 ```
 
 ```bash
-ecommerce-sim validate      # re-run all consistency checks
+ecommerce-sim textsql     # Text-to-SQL knowledge base + verified questions (pip install "ecommerce-simulator[sql]")
 ```
 
-```bash
-ecommerce-sim textsql       # Text-to-SQL knowledge base + verified questions (pip install "ecommerce-simulator[sql]")
-```
-
-A small shop for experiments (about a minute):
-
-```bash
-ecommerce-sim load --today 2025-03-31 --products 500 --launch-customers 600 --data-dir small_data
-```
+| Size | Products | Customers by late 2026 | Orders by late 2026 |
+|---|---|---|---|
+| small | 1,500 | ~6k | ~10k |
+| medium | 5,000 | ~18k | ~30k |
+| full | 10,000 | ~35k | ~60k |
 
 ## The story
 
@@ -103,6 +121,7 @@ DuckDB (`SELECT * FROM 'data/clickstream/*/*.parquet'`).
 | Last day | today | `--today` / `ECOMSIM_TODAY` |
 | Opening day | 2025-01-01 | `--start-date` / `ECOMSIM_START_DATE` |
 | Seed | 42 | `--seed` / `ECOMSIM_SEED` |
+| Size preset | full | `--size small/medium/full` / `ECOMSIM_SIZE` |
 | Product styles | 10,000 | `--products` / `ECOMSIM_PRODUCTS` |
 | Launch customers | 9,000 | `--launch-customers` / `ECOMSIM_LAUNCH_CUSTOMERS` |
 

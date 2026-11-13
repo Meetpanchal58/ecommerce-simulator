@@ -57,6 +57,7 @@ def from_environment(size: str | None = None, **overrides) -> Settings:
         "daily_new_visitors": os.getenv("ECOMSIM_DAILY_NEW_VISITORS"),
     }
     size = size or os.getenv("ECOMSIM_SIZE") or "full"
+    size = {"large": "full"}.get(size, size)          # "large" is another name for "full"
     if size not in SIZES:
         raise ValueError(f"size must be one of {', '.join(SIZES)}")
     values = dict(SIZES[size])
