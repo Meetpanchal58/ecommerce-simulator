@@ -265,7 +265,7 @@ class Traffic:
         # much more often in the launch weeks and when they have something in the cart.
         if not person["customer_id"]:
             launch = (start.normalize() - self.settings.start).days < LAUNCH_DAYS
-            chance = (0.30 if launch else 0.06) + (0.10 if cart else 0.0)
+            chance = (0.22 if launch else 0.05) + (0.10 if cart else 0.0)
             if rng.random() < chance:
                 self._sign_up_now(w, s, rng, person)
 
@@ -280,7 +280,7 @@ class Traffic:
         score = self.taste.score(person, np.array([p]), self.month, self.prices[[p]])[0]
         discount = 1 - self.prices[p] / self.mrp[p]
         price_pull = 1 + discount * person["deal_seeking"] * 1.5
-        chance = 0.035 * person["buy_propensity"] * min(score, 4.0) * price_pull * deal_mood
+        chance = 0.022 * person["buy_propensity"] * min(score, 4.0) * price_pull * deal_mood
         return rng.random() < min(chance, 0.6)
 
     def _login(self, s: dict, rng) -> None:
@@ -363,7 +363,7 @@ class Traffic:
         #    earlier anonymous visitors returning.
         new_visitors = rng.poisson(self.settings.daily_new_visitors * scale * demand)
         if (day - self.settings.start).days < LAUNCH_DAYS:
-            new_visitors += rng.poisson(self.settings.launch_customers / LAUNCH_DAYS * 2.4)
+            new_visitors += rng.poisson(self.settings.launch_customers / LAUNCH_DAYS * 1.5)
         for _ in range(int(new_visitors)):
             source = self._organic_source(rng)
             person = w.population.new_person(rng, source["traffic_source"])

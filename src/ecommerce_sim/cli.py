@@ -7,9 +7,10 @@ from . import settings as settings_module
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="ecommerce-sim", description="Simulate an e-commerce shop day by day.")
-    parser.add_argument("command", choices=["load", "increment", "derive", "validate"],
+    parser.add_argument("command", choices=["load", "increment", "derive", "validate", "textsql", "docs"],
                         help="load: start fresh from the start date to today; increment: add days up to today; "
-                             "derive: build analysis tables (churn, affinity, ...); validate: check the data")
+                             "derive: build analysis tables (churn, affinity, ...); validate: check the data; "
+                             "textsql: Text-to-SQL knowledge base and questions; docs: write docs/schema.md")
     parser.add_argument("--data-dir", help="where to write the data (default: ./data)")
     parser.add_argument("--today", help="last day to simulate, YYYY-MM-DD (default: today)")
     parser.add_argument("--start-date", help="day the shop opens (default: 2025-01-01)")
@@ -29,6 +30,21 @@ def main(argv=None) -> int:
     if args.command == "derive":
         from .derive import derive_all
         derive_all(settings.data_dir)
+        return 0
+    if args.command == "textsql":
+        from .textsql import build
+        build(settings.data_dir)
+        return 0
+    if args.command == "docs":
+        from .schema import markdown
+        from .store import Store
+        store = Store(settings.data_dir)
+        from .schema import TABLES
+        types = {name: {col: str(dtype) for col, dtype in store.read(name).dtypes.items()} for name in TABLES}
+        from pathlib import Path
+        Path("docs").mkdir(exist_ok=True)
+        Path("docs/schema.md").write_text(markdown(types))
+        print("Wrote docs/schema.md")
         return 0
     from .validate import validate
     return 0 if validate(settings.data_dir) else 1

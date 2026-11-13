@@ -300,7 +300,7 @@ def run(settings, mode: str, progress=print) -> dict:
     days = pd.date_range(first, end, freq="D")
     progress(f"Simulating {len(days):,} days: {days[0]:%Y-%m-%d} -> {days[-1]:%Y-%m-%d}")
     started = time.perf_counter()
-    for number, day in enumerate(days, 1):
+    for day in days:
         world.simulate_day(day)
         month_ends = day == days[-1] or (day + pd.Timedelta(days=1)).day == 1
         if month_ends:
