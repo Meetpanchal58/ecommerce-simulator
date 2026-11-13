@@ -10,6 +10,7 @@ Layout of the data folder:
       _ground_truth/             hidden truths for evaluation only (e.g. customer taste)
       derived/                   tables built by `ecommerce-sim derive`
 """
+import json
 import pickle
 from pathlib import Path
 
@@ -64,6 +65,17 @@ class Store:
         if path.exists():
             frame = pd.concat([pd.read_parquet(path), frame], ignore_index=True)
         frame.reset_index(drop=True).to_parquet(path, index=False)
+
+    def write_manifest(self, settings, first_day, last_day) -> None:
+        """manifest.json: which shop this is and which days it covers."""
+        from . import __version__
+        from .settings import SIZES
+        mine = {"n_products": settings.n_products, "n_sellers": settings.n_sellers,
+                "launch_customers": settings.launch_customers, "daily_new_visitors": settings.daily_new_visitors}
+        size = next((name for name, preset in SIZES.items() if preset == mine), "custom")
+        manifest = {"size": size, "seed": settings.seed, "first_day": f"{first_day:%Y-%m-%d}",
+                    "last_day": f"{last_day:%Y-%m-%d}", "package_version": __version__, **mine}
+        (self.root / "manifest.json").write_text(json.dumps(manifest, indent=2))
 
     # ------------------------------------------------------------------ simulator memory
     def save_state(self, state: dict) -> None:

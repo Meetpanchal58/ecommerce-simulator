@@ -7,11 +7,14 @@ from . import settings as settings_module
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="ecommerce-sim", description="Simulate an e-commerce shop day by day.")
-    parser.add_argument("command", choices=["load", "increment", "derive", "validate", "textsql", "docs"],
-                        help="load: start fresh from the start date to today; increment: add days up to today; "
+    parser.add_argument("command", choices=["download", "load", "increment", "derive", "validate", "textsql", "docs"],
+                        help="download: get the latest ready-made data (updated daily); load: simulate fresh from the start date "
+                             "to today; increment: add days up to today; "
                              "derive: build analysis tables (churn, affinity, ...); validate: check the data; "
                              "textsql: Text-to-SQL knowledge base and questions; docs: write docs/schema.md")
     parser.add_argument("--data-dir", help="where to write the data (default: ./data)")
+    parser.add_argument("--size", choices=["small", "medium", "full"],
+                        help="shop size preset (default: full): small ~5 min, medium ~15 min, full ~30 min to simulate")
     parser.add_argument("--today", help="last day to simulate, YYYY-MM-DD (default: today)")
     parser.add_argument("--start-date", help="day the shop opens (default: 2025-01-01)")
     parser.add_argument("--seed", help="random seed (default: 42)")
@@ -19,9 +22,13 @@ def main(argv=None) -> int:
     parser.add_argument("--launch-customers", help="customers signing up in the opening weeks (default: 9000)")
     args = parser.parse_args(argv)
     settings = settings_module.from_environment(
-        data_dir=args.data_dir, today=args.today, start_date=args.start_date, seed=args.seed,
+        size=args.size, data_dir=args.data_dir, today=args.today, start_date=args.start_date, seed=args.seed,
         n_products=args.products, launch_customers=args.launch_customers)
 
+    if args.command == "download":
+        from .download import download
+        download(settings.data_dir, args.size or "full")
+        return 0
     if args.command in ("load", "increment"):
         from .simulate import run
         run(settings, args.command)

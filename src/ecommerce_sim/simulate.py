@@ -16,6 +16,7 @@ Both give exactly the same data for the same days.
 """
 import time
 from collections import defaultdict
+from dataclasses import replace
 
 import numpy as np
 import pandas as pd
@@ -97,6 +98,7 @@ class World:
                                   self.pricing.current_event, session, self.promotions, self.events_live, self.marketing,
                                   self.inventory, self.moves, self.agents)
         order.update({"at": at, "campaign_id": session["campaign_id"], "region": address["region"]})
+        self.population.mark_order(customer["customer_id"], at)
         self.today_orders.append(order)
         self._attribute(order, customer["customer_id"])
         if session["campaign_id"] and self.marketing.by_id[session["campaign_id"]]["channel_group"] == "CRM":
@@ -172,17 +174,21 @@ class World:
         self.last_day = day
 
     def _prime_and_deletions(self, rng, day: pd.Timestamp) -> None:
+        """Some customers who have ordered join Prime (more before Member Days); a few delete their account."""
         member_days = len(active_events(self.events, day + pd.Timedelta(days=3)).query("name.str.startswith('Mid-Year')")) > 0
-        for person in self.population.profiles:
-            customer_id = person["customer_id"]
-            row = self.population.row(customer_id)
-            if row["account_status"] == "Deleted":
-                continue
-            if not row["is_prime"] and self.orders.orders_of[customer_id] > 0:
-                if rng.random() < person["prime_propensity"] * 0.003 * (6 if member_days else 1):
-                    self.population.join_prime(customer_id, day)
-            if rng.random() < 0.00003:
-                row["account_status"] = "Deleted"
+        population = self.population
+        n = len(population)
+        if n == 0:
+            return
+        draws = rng.random((2, n))
+        prime_chance = np.array([p["prime_propensity"] for p in population.profiles]) * 0.003 * (6 if member_days else 1)
+        has_ordered = np.array([self.orders.orders_of.get(c["customer_id"], 0) > 0 for c in population.customers])
+        is_prime = np.array([c["is_prime"] for c in population.customers])
+        deleted = np.array(population.deleted, dtype=bool)
+        for i in np.flatnonzero(~deleted & ~is_prime & has_ordered & (draws[0] < prime_chance)):
+            population.join_prime(population.customers[i]["customer_id"], day)
+        for i in np.flatnonzero(~deleted & (draws[1] < 0.00003)):
+            population.delete(population.customers[i]["customer_id"])
 
     def _fill_platform_results(self, rng, day: pd.Timestamp, spend_rows: list) -> pd.DataFrame:
         """Platform-reported conversions, affiliate commissions and CRM costs, by hour."""
@@ -270,6 +276,7 @@ class World:
         store.write("price_history", history)
         store.write_truth("customer_taste", self.population.truth())
         store.write_truth("product_quality", self.products[["product_id", "quality"]])
+        store.write_manifest(self.settings, first_day=self.settings.start, last_day=today)
 
 
 def run(settings, mode: str, progress=print) -> dict:
@@ -286,9 +293,11 @@ def run(settings, mode: str, progress=print) -> dict:
         if state is None:
             raise RuntimeError("No existing data found. Run `ecommerce-sim load` first.")
         world = state["world"]
-        if (world.settings.seed, world.settings.start_date) != (settings.seed, settings.start_date):
-            raise RuntimeError("Saved data used a different seed or start date; run `ecommerce-sim load`.")
+        # The shop keeps its own size, seed and opening day; only "today" and the folder can change.
+        settings = replace(world.settings, today=settings.today, data_dir=settings.data_dir)
         world.settings = settings
+        world.marketing.settings = world.crm.settings = world.orders.settings = settings
+        world.inventory.settings = world.traffic.settings = settings
         first = world.last_day + pd.Timedelta(days=1)
         if first > end:
             progress(f"Already up to date (last simulated day {world.last_day:%Y-%m-%d}). Nothing to do.")

@@ -15,6 +15,8 @@ Visitors today come from:
     existing customers returning on their own, ad clicks and affiliate clicks
     (from marketing), CRM message clicks, and new visitors finding the shop.
 """
+from collections import deque
+
 import numpy as np
 import pandas as pd
 
@@ -59,7 +61,7 @@ class Traffic:
             "Other": np.isin(self.gender, ["Women", "Men", "Unisex"]),
         }
         self.popularity = np.ones(self.n_products)          # recent views and sales (drives listing order)
-        self.anonymous = []                                 # visitors who have not signed up (yet)
+        self.anonymous = deque(maxlen=ANONYMOUS_POOL_SIZE)   # recent visitors who have not signed up (yet)
         self.next_session = 1
         self.next_event = 1
         self.click_rows, self.impression_rows, self.auth_rows = [], [], []
@@ -114,6 +116,7 @@ class Traffic:
                 self.articles_for[(shopper, category)] = self.article[live & (self.category == category)]
         self.month = day.month
         self.prices = prices
+        self.taste.prepare_day(day.month, prices)
         self.popularity *= 0.97                      # popularity fades unless refreshed
 
     def _pick_article(self, rng, person: dict) -> str | None:
@@ -143,10 +146,10 @@ class Traffic:
         """Which of the shown products the visitor opens (taste x position bias)."""
         if len(shown) == 0:
             return []
-        score = self.taste.score(person, shown, self.month, self.prices[shown])
-        relative = score / max(score.mean(), 1e-9)
-        chance = np.clip(base * relative * POSITION_BIAS[:len(shown)], 0, 0.85)
-        return [int(p) for p, c in zip(shown, chance) if rng.random() < c]
+        score = self.taste.score_today(person, shown)
+        chance = np.minimum(base * score * (len(score) / max(score.sum(), 1e-9)) * POSITION_BIAS[:len(shown)], 0.85)
+        draws = rng.random(len(shown))
+        return [int(p) for p, c, d in zip(shown, chance, draws) if d < c]
 
     def _choose_sku(self, rng, person: dict, p: int) -> int:
         first, count = self.sku_first[p], self.sku_count[p]
@@ -177,7 +180,7 @@ class Traffic:
         s = session
         customer_id = person["customer_id"]
         if customer_id:
-            w.population.row(customer_id)["last_seen_at"] = start
+            w.population.mark_seen(customer_id, start)
             if s["campaign_id"]:
                 self.touches.setdefault(customer_id, []).append((start, s["campaign_id"], source["group"]))
         elif s["campaign_id"]:
@@ -298,7 +301,7 @@ class Traffic:
         self._event(s, "session_end", None, dwell=1)
 
     def _wants(self, rng, person: dict, p: int, deal_mood: float) -> bool:
-        score = self.taste.score(person, np.array([p]), self.month, self.prices[[p]])[0]
+        score = float(self.taste.score_today(person, np.array([p]))[0])
         discount = 1 - self.prices[p] / self.mrp[p]
         price_pull = 1 + discount * person["deal_seeking"] * 1.5
         chance = 0.015 * person["buy_propensity"] * min(score, 4.0) * price_pull * deal_mood
@@ -364,22 +367,23 @@ class Traffic:
         visits = []         # (start time, person, source)
 
         # 1. Existing customers coming back on their own (interest fades after their last order).
-        for person in w.population.profiles:
-            customer_id = person["customer_id"]
-            if w.population.row(customer_id)["account_status"] == "Deleted":
-                continue
-            last = w.orders.last_order_at.get(customer_id, person["signed_up_at"])
-            idle = (day - last).days
-            fade = max(0.04, np.exp(-max(0, idle - 7) / person["lapse_after_days"]))
-            rate = person["visits_per_week"] / 7 * demand * fade
-            for _ in range(int(rng.poisson(rate))):
+        population = w.population
+        today = day.toordinal()
+        visit_rate = np.array(population.visit_rate)
+        lapse = np.array(population.lapse_days)
+        idle = today - np.array(population.last_order_day)
+        active = ~np.array(population.deleted, dtype=bool)
+        fade = np.maximum(0.04, np.exp(-np.maximum(0, idle - 7) / lapse))
+        counts = rng.poisson(visit_rate / 7 * demand * fade * active) if len(visit_rate) else []
+        for i in np.flatnonzero(counts):
+            person = population.profiles[i]
+            for _ in range(int(counts[i])):
                 visits.append((self._start(rng, day), person, self._organic_source(rng)))
 
         # 2. Ad, affiliate and CRM clicks that landed on the site.
-        recent = [p for p in w.population.profiles
-                  if (day - w.population.row(p["customer_id"])["last_seen_at"]).days <= 21]
-        lapsed = [p for p in w.population.profiles
-                  if (day - w.orders.last_order_at.get(p["customer_id"], p["signed_up_at"])).days > 60]
+        seen = today - np.array(population.last_seen_day)
+        recent = [population.profiles[i] for i in np.flatnonzero(active & (seen <= 21))]
+        lapsed = [population.profiles[i] for i in np.flatnonzero(active & (idle > 60))]
         for hour, minute, campaign_id, audience in landings:
             campaign = w.marketing.by_id[campaign_id]
             person = self._who_clicked(rng, w, audience, campaign, recent, lapsed)
@@ -442,9 +446,7 @@ class Traffic:
         return pool[int(rng.integers(0, len(pool)))]
 
     def _remember_anonymous(self, person: dict) -> None:
-        self.anonymous.append(person)
-        if len(self.anonymous) > ANONYMOUS_POOL_SIZE:
-            self.anonymous = [p for p in self.anonymous[-ANONYMOUS_POOL_SIZE:] if p["customer_id"] is None]
+        self.anonymous.append(person)       # the oldest visitor drops out when the pool is full
 
     # ------------------------------------------------------------------ rows
     CLICK_COLUMNS = ["event_id", "session_id", "anonymous_id", "customer_id", "event_at", "event_type", "page_type",

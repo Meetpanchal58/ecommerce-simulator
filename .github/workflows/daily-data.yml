@@ -1,0 +1,54 @@
+name: Daily data
+
+# Every night: take yesterday's published data, simulate the new day(s), check it,
+# and publish it again as assets of the `data-latest` release. `ecommerce-sim download`
+# fetches these files, so downloaded data is always up to date.
+on:
+  schedule:
+    - cron: "17 21 * * *"        # 02:47 IST
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-data
+  cancel-in-progress: false
+
+jobs:
+  data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        size: [small, full]
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ECOMSIM_DATA_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: pip install -e ".[sql]"
+      - name: Continue from the published data (or build it the first time)
+        run: |
+          if ecommerce-sim download --size ${{ matrix.size }} --data-dir data_${{ matrix.size }}; then
+            ecommerce-sim increment --size ${{ matrix.size }} --data-dir data_${{ matrix.size }}
+          else
+            echo "No published data yet: building from the opening day."
+            ecommerce-sim load --size ${{ matrix.size }} --data-dir data_${{ matrix.size }}
+          fi
+      - name: Analysis tables
+        run: |
+          ecommerce-sim derive --data-dir data_${{ matrix.size }}
+          ecommerce-sim textsql --data-dir data_${{ matrix.size }}
+      - name: Publish
+        run: |
+          python -c "from ecommerce_sim.download import package; package('data_${{ matrix.size }}', '${{ matrix.size }}', 'dist')"
+          gh release view data-latest >/dev/null 2>&1 || \
+            gh release create data-latest --title "Latest data" --notes "Generated data, refreshed every night by the Daily data workflow. Download with: ecommerce-sim download --size small|full" --latest=false
+          gh release upload data-latest dist/ecommerce-sim-data-${{ matrix.size }}.tar.gz --clobber

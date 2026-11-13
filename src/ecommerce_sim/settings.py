@@ -10,6 +10,13 @@ from pathlib import Path
 
 import pandas as pd
 
+# Ready-made shop sizes. Explicit settings (flags or environment variables) override these.
+SIZES = {
+    "small": {"n_products": 1_500, "n_sellers": 80, "launch_customers": 1_500, "daily_new_visitors": 30},
+    "medium": {"n_products": 5_000, "n_sellers": 200, "launch_customers": 4_500, "daily_new_visitors": 80},
+    "full": {"n_products": 10_000, "n_sellers": 400, "launch_customers": 9_000, "daily_new_visitors": 160},
+}
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -37,8 +44,8 @@ class Settings:
         return self.launch_customers / 9_000
 
 
-def from_environment(**overrides) -> Settings:
-    """Settings from ECOMSIM_* environment variables, then explicit overrides."""
+def from_environment(size: str | None = None, **overrides) -> Settings:
+    """Settings from a size preset, then ECOMSIM_* environment variables, then explicit overrides."""
     env = {
         "data_dir": os.getenv("ECOMSIM_DATA_DIR"),
         "seed": os.getenv("ECOMSIM_SEED"),
@@ -49,7 +56,11 @@ def from_environment(**overrides) -> Settings:
         "launch_customers": os.getenv("ECOMSIM_LAUNCH_CUSTOMERS"),
         "daily_new_visitors": os.getenv("ECOMSIM_DAILY_NEW_VISITORS"),
     }
-    values = {key: value for key, value in env.items() if value not in (None, "")}
+    size = size or os.getenv("ECOMSIM_SIZE") or "full"
+    if size not in SIZES:
+        raise ValueError(f"size must be one of {', '.join(SIZES)}")
+    values = dict(SIZES[size])
+    values.update({key: value for key, value in env.items() if value not in (None, "")})
     values.update({key: value for key, value in overrides.items() if value not in (None, "")})
     types = {"seed": int, "n_products": int, "n_sellers": int, "launch_customers": int,
              "daily_new_visitors": float, "data_dir": Path}

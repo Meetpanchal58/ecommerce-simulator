@@ -34,6 +34,14 @@ class Population:
         self.next_address = 1
         self.next_anonymous = 1
         self.address_ids = {}    # customer_id -> positions in self.addresses
+        # Per-customer numbers kept as plain lists (same order as self.customers) so a whole
+        # day's decisions can be made at once with numpy.
+        self.visit_rate = []     # visits per week
+        self.lapse_days = []     # how quickly interest fades after the last order
+        self.signup_day = []     # day number of sign-up
+        self.last_order_day = [] # day number of the latest order (sign-up day if none)
+        self.last_seen_day = []  # day number of the latest visit
+        self.deleted = []
 
     def __len__(self):
         return len(self.customers)
@@ -61,7 +69,7 @@ class Population:
             "preferred_usage": str(rng.choice(USAGES, p=[0.45, 0.12, 0.12, 0.17, 0.06, 0.08])),
             "price_sensitivity": float(np.clip(rng.beta(2.2, 2.0), 0.03, 0.98)),
             "deal_seeking": float(np.clip(rng.beta(2.0, 2.5), 0.02, 0.98)),        # reacts to sales
-            "visits_per_week": float(np.clip(rng.gamma(2.0, 0.32) * quality, 0.04, 4.0)),
+            "visits_per_week": float(np.clip(rng.gamma(2.0, 0.26) * quality, 0.03, 4.0)),
             "buy_propensity": float(np.clip(rng.gamma(2.5, 0.35) * quality, 0.05, 3.0)),
             "return_tendency": float(np.clip(rng.beta(1.6, 9.0), 0.01, 0.45)),
             "apparel_size": ref.APPAREL_SIZES[apparel_size],
@@ -70,7 +78,7 @@ class Population:
             "prime_propensity": float(rng.beta(1.4, 4.0)),
             "cod_preference": float(rng.beta(1.5, 4.0)),
             "device": device or str(rng.choice(ref.DEVICES, p=ref.DEVICE_SHARE)),
-            "lapse_after_days": float(rng.gamma(3.0, 60.0)),                   # interest fades after this long without buying
+            "lapse_after_days": float(rng.gamma(2.5, 32.0)),                   # interest fades after this long without buying
             "acquired_via": channel,
             "city": str(rng.choice(CITY_NAMES, p=CITY_WEIGHTS)),
         }
@@ -119,7 +127,27 @@ class Population:
         person["customer_id"] = customer_id
         person["signed_up_at"] = signup_at
         self.profiles.append(person)
+        day = signup_at.toordinal()
+        self.visit_rate.append(person["visits_per_week"])
+        self.lapse_days.append(person["lapse_after_days"])
+        self.signup_day.append(day)
+        self.last_order_day.append(day)
+        self.last_seen_day.append(day)
+        self.deleted.append(False)
         return customer_id
+
+    def mark_seen(self, customer_id: str, when: pd.Timestamp) -> None:
+        i = self.index[customer_id]
+        self.customers[i]["last_seen_at"] = when
+        self.last_seen_day[i] = when.toordinal()
+
+    def mark_order(self, customer_id: str, when: pd.Timestamp) -> None:
+        self.last_order_day[self.index[customer_id]] = when.toordinal()
+
+    def delete(self, customer_id: str) -> None:
+        i = self.index[customer_id]
+        self.customers[i]["account_status"] = "Deleted"
+        self.deleted[i] = True
 
     def add_address(self, rng, customer_id: str, city: str, label: str, default: bool, created_at) -> str:
         state, region, tier, prefix, warehouse = ref.CITIES[city]
@@ -160,4 +188,6 @@ class Population:
 
     def truth(self) -> pd.DataFrame:
         """Hidden profiles of signed-up customers (for evaluation only)."""
-        return pd.DataFrame(self.profiles).drop(columns=["city"], errors="ignore")
+        frame = pd.DataFrame(self.profiles)
+        internal = [c for c in frame.columns if c.startswith("_") or c in ("city", "pending_touches")]
+        return frame.drop(columns=internal)
